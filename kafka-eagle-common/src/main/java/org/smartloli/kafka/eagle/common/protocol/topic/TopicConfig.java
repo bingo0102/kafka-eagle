@@ -15,24 +15,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.smartloli.kafka.eagle.sql;
+package org.smartloli.kafka.eagle.common.protocol.topic;
 
-import org.smartloli.kafka.eagle.core.sql.execute.KafkaSqlParser;
+import org.apache.kafka.clients.admin.ConfigEntry;
+
+import com.google.gson.Gson;
 
 /**
- * Test kafka sql query.
+ * Set topic information.
  * 
  * @author smartloli.
  *
- *         Created by Feb 28, 2017
+ *         Created by Jun 9, 2019
  */
-public class TestKafkaParser {
+public class TopicConfig {
 
-	public static void main(String[] args) {
-		//String sql = "SELECT \"partition\",  \"offset\",\"msg\" from \"kv-test2019\" where \"partition\" in (0) and \"offset\"=37445 group by \"partition\" limit 10";
-		String sql = "select * from \"kv-test2019\" where \"partition\" in (0) limit 10";
-		String result = KafkaSqlParser.execute("cluster1", sql);
-		System.out.println("result: "+result);
+	private String name = "";
+	private String type = "";
+	private ConfigEntry configEntry;
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public ConfigEntry getConfigEntry() {
+		return configEntry;
+	}
+
+	public void setConfigEntry(ConfigEntry configEntry) {
+		this.configEntry = configEntry;
+	}
+
+	@Override
+	public String toString() {
+		return new Gson().toJson(this);
 	}
 
 }

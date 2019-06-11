@@ -15,24 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.smartloli.kafka.eagle.sql;
+package org.smartloli.kafka.eagle.factory;
 
-import org.smartloli.kafka.eagle.core.sql.execute.KafkaSqlParser;
+import org.apache.kafka.clients.admin.ConfigEntry;
+import org.smartloli.kafka.eagle.core.metrics.KafkaMetricsFactory;
+import org.smartloli.kafka.eagle.core.metrics.KafkaMetricsService;
 
 /**
- * Test kafka sql query.
+ * TODO
  * 
  * @author smartloli.
  *
- *         Created by Feb 28, 2017
+ *         Created by Jun 9, 2019
  */
-public class TestKafkaParser {
+public class TestKafkaMetricsImpl {
+
+	private static KafkaMetricsService kafkaMetric = new KafkaMetricsFactory().create();
 
 	public static void main(String[] args) {
-		//String sql = "SELECT \"partition\",  \"offset\",\"msg\" from \"kv-test2019\" where \"partition\" in (0) and \"offset\"=37445 group by \"partition\" limit 10";
-		String sql = "select * from \"kv-test2019\" where \"partition\" in (0) limit 10";
-		String result = KafkaSqlParser.execute("cluster1", sql);
-		System.out.println("result: "+result);
+		ConfigEntry configEntry = new ConfigEntry("cleanup.policy", "122ss");
+		String target = kafkaMetric.changeTopicConfig("cluster1", "kv-test2019", "ADD", configEntry);
+		System.out.println("target: " + target);
 	}
-
 }

@@ -64,6 +64,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smartloli.kafka.eagle.common.constant.JmxConstants.KafkaServer;
 import org.smartloli.kafka.eagle.common.constant.JmxConstants.KafkaServer8;
+import org.smartloli.kafka.eagle.common.constant.OdpsSqlParser;
 import org.smartloli.kafka.eagle.common.protocol.*;
 import org.smartloli.kafka.eagle.common.util.CalendarUtils;
 import org.smartloli.kafka.eagle.common.util.JMXFactoryUtils;
@@ -590,27 +591,26 @@ public class KafkaServiceImpl implements KafkaService {
 
 	private KafkaSqlInfo segments(String clusterAlias, String sql) {
 		KafkaSqlInfo kafkaSql = new KafkaSqlInfo();
-		kafkaSql.setMetaSql(sql);
-		// sql = sql.toLowerCase();
 		kafkaSql.setSql(sql);
-		if (sql.contains("and")) {
-			sql = sql.split("and")[0];
-		} else if (sql.contains("group by")) {
-			sql = sql.split("group")[0];
-		} else if (sql.contains("limit")) {
-			sql = sql.split("limit")[0];
-		}
 		kafkaSql.getSchema().put("partition", "integer");
 		kafkaSql.getSchema().put("offset", "bigint");
 		kafkaSql.getSchema().put("msg", "varchar");
-		if (!sql.startsWith("select")) {
+		if (!sql.startsWith("select") && !sql.startsWith("SELECT")) {
 			kafkaSql.setStatus(false);
 			return kafkaSql;
 		} else {
-			Matcher tableName = Pattern.compile("select\\s.+from\\s(.+)where\\s(.+)").matcher(kafkaSql.getMetaSql());
-			if (tableName.find()) {
+			String tableName = OdpsSqlParser.parserTopic(sql);
+			if (!"".equals(tableName)) {
 				kafkaSql.setStatus(true);
-				kafkaSql.setTableName(tableName.group(1).trim().replaceAll("\"", ""));
+				kafkaSql.setTableName(tableName);
+			}
+			sql = sql.toLowerCase();
+			if (sql.contains("and")) {
+				sql = sql.split("and")[0];
+			} else if (sql.contains("group by")) {
+				sql = sql.split("group")[0];
+			} else if (sql.contains("limit")) {
+				sql = sql.split("limit")[0];
 			}
 
 			Matcher matcher = Pattern.compile("select\\s.+from\\s(.+)where\\s(.+)").matcher(sql);
@@ -631,7 +631,7 @@ public class KafkaServiceImpl implements KafkaService {
 		return kafkaSql;
 	}
 
-	/** Get kafka 0.10.x activer topics. */
+	/** Get kafka 0.10.x after activer topics. */
 	public Set<String> getKafkaActiverTopics(String clusterAlias, String group) {
 		JSONArray consumerGroups = getKafkaMetadata(parseBrokerServer(clusterAlias), group, clusterAlias);
 		Set<String> topics = new HashSet<>();
@@ -869,7 +869,7 @@ public class KafkaServiceImpl implements KafkaService {
 	/** Get kafka version. */
 	private String getKafkaVersion(String host, int port, String ids, String clusterAlias) {
 		JMXConnector connector = null;
-		String version = "";
+		String version = "-";
 		String JMX = "service:jmx:rmi:///jndi/rmi://%s/jmxrmi";
 		try {
 			JMXServiceURL jmxSeriverUrl = new JMXServiceURL(String.format(JMX, host + ":" + port));
@@ -916,6 +916,13 @@ public class KafkaServiceImpl implements KafkaService {
 					metadate.setLeader(topicMetadata.getInteger("leader"));
 					metadate.setPartitionId(Integer.valueOf(partition));
 					metadate.setReplicas(getReplicasIsr(clusterAlias, topic, Integer.valueOf(partition)));
+					long logSize =0L;
+					if ("kafka".equals(SystemConfigUtils.getProperty(clusterAlias + ".kafka.eagle.offset.storage"))) {
+						 logSize = getKafkaLogSize(clusterAlias, topic, Integer.valueOf(partition));
+					} else {
+						logSize = getLogSize(clusterAlias, topic, Integer.valueOf(partition));
+					}
+					metadate.setLogSize(logSize);
 					targets.add(metadate);
 				}
 			}
@@ -1033,5 +1040,35 @@ public class KafkaServiceImpl implements KafkaService {
 			}
 		}
 		return logSize;
+	}
+
+	/** Get broker host and jmx_port info from ids. */
+	public String getBrokerJMXFromIds(String clusterAlias, int ids) {
+		String jni = "";
+		KafkaZkClient zkc = kafkaZKPool.getZkClient(clusterAlias);
+		if (zkc.pathExists(BROKER_IDS_PATH)) {
+			try {
+				Tuple2<Option<byte[]>, Stat> tuple = zkc.getDataAndStat(BROKER_IDS_PATH + "/" + ids);
+				String tupleString = new String(tuple._1.get());
+				String host = "";
+				if (SystemConfigUtils.getBooleanProperty(clusterAlias + ".kafka.eagle.sasl.enable")) {
+					String endpoints = JSON.parseObject(tupleString).getString("endpoints");
+					String tmp = endpoints.split(File.separator + File.separator)[1];
+					host = tmp.substring(0, tmp.length() - 2).split(":")[0];
+				} else {
+					host = JSON.parseObject(tupleString).getString("host");
+				}
+				int jmxPort = JSON.parseObject(tupleString).getInteger("jmx_port");
+				jni = host + ":" + jmxPort;
+			} catch (Exception ex) {
+				LOG.error("Get broker from ids has error, msg is " + ex.getMessage());
+				ex.printStackTrace();
+			}
+		}
+		if (zkc != null) {
+			kafkaZKPool.release(clusterAlias, zkc);
+			zkc = null;
+		}
+		return jni;
 	}
 }

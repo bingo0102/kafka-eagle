@@ -15,24 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.smartloli.kafka.eagle.sql;
+package org.smartloli.kafka.eagle.plugin.net;
 
-import org.smartloli.kafka.eagle.core.sql.execute.KafkaSqlParser;
+import org.smartloli.kafka.eagle.common.util.NetUtils;
+import org.smartloli.kafka.eagle.common.util.SystemConfigUtils;
 
 /**
- * Test kafka sql query.
+ * Print kafka eagle system startup url.
  * 
  * @author smartloli.
  *
- *         Created by Feb 28, 2017
+ *         Created by Jun 10, 2019
  */
-public class TestKafkaParser {
-
+public class KafkaEagleNet {
 	public static void main(String[] args) {
-		//String sql = "SELECT \"partition\",  \"offset\",\"msg\" from \"kv-test2019\" where \"partition\" in (0) and \"offset\"=37445 group by \"partition\" limit 10";
-		String sql = "select * from \"kv-test2019\" where \"partition\" in (0) limit 10";
-		String result = KafkaSqlParser.execute("cluster1", sql);
-		System.out.println("result: "+result);
+		System.out.println("* Kafka Eagle Service has started success.");
+		System.out.println("* Welcome, Now you can visit 'http://"+NetUtils.ip()+":"+SystemConfigUtils.getIntProperty("kafka.eagle.webui.port")+"/ke'");
 	}
-
 }
